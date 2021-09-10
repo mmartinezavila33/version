@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>My Game</title>
+</head>
+
+<body>
+    <div id="app">
+        <button @click="newRoom">Nueva sala</button>
+        <br/><label>Creada la sala {{newRoomId}}</label>
+        <br/>
+        <select v-bind="rooms" size="10" v-model="roomSelected" @change="onChangeRoom($event)">
+            <option v-for="room  in rooms" :key='room.id' :value="room.id">{{room.id}}</option>            
+        </select>
+        <br>
+        <div v-if="roomSelected != '' ">
+        <label v-if="roomSelected != '' ">Sala seleccionada {{roomSelected}} [{{roomActive.players.length}}]</label>
+        <button @click="joinRoom(roomSelected)">Join room</button>
+    </div>
+        <ul v-for="(player, i) in roomActive.players" :key="i">
+            <li>Jugador {{i+1}}: {{player}}</li>
+        </ul>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        new Vue({
+            el: "#app",
+            data() {
+                return {
+                    rooms: [],
+                    newRoomId: '',
+                    roomSelected: '',
+                    roomActive: []
+                }
+            },
+            mounted: function() {
+                //nos conectamos a un servidor por su ip
+                this.socket = io('http://localhost:3000')
+
+                //recibimos verificación del servidor al conectarnos
+                this.socket.on('connect', () => {
+                    console.log('Conectado')
+                })
+
+
+                setInterval(() => { // función que se repite cada 2000 milésimas de segundos
+                    console.log('Envio un ping')
+                    this.socket.emit('setPing', 'ping'); // enviamos el ping
+                }, 2000);
+
+                this.socket.on('setPong', (msg) => {
+                    console.log(msg)
+                })
+
+                this.socket.on('setNewRoom', (data) => {
+                    this.newRoomId = data.newRoomId // registramos la nueva sala
+                    this.rooms = data.rooms //actualizamos las salas
+                })
+
+                // solicitar las salas iniciales activas
+                this.socket.emit('getInitRooms');
+
+                // actualizar la variable rooms en el cliente
+                this.socket.on('setInitRooms', (rooms) => {
+                    this.rooms = rooms //actualizar las rooms en el cliente
+                })
+
+            },
+            methods: {
+                newRoom() {
+                    this.socket.emit('newRoom');
+                },
+                onChangeRoom(event) {
+    var idRoomSelected = event.target.value; // obtenemos el id de la sala seleccionada
+    this.roomActive = this.rooms.filter(room => room.id == idRoomSelected)[0]; // filtramos las salas hasta traer la que coincida con el id
+},
+joinRoom(idRoom) {
+    this.socket.emit('joinRoom', idRoom)
+}
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>
